@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Data (downloaded at runtime)
+data/raw/
+data/processed/
+data/output/
+*.dta
+*.sas7bdat
+*.ssp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
