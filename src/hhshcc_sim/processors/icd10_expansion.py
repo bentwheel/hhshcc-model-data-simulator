@@ -20,6 +20,8 @@ _DIAG_SHEET_PATTERNS = [
     "Diagnosis",
     "DiagnosisCode",
     "Diagnosis Code",
+    "ICD-10",
+    "ICD10",
     "DX",
     "Sheet1",
 ]
