@@ -136,6 +136,8 @@ def validate_hcpcs_file(path: Path, person_path: Path) -> list[str]:
     if orphan_ids:
         errors.append(f"HCPCS.csv has {len(orphan_ids)} ENROLIDs not in PERSON.csv")
 
+    return errors
+
 
 def validate_all_outputs(output_dir: Path) -> list[str]:
     """Run all validators on the output directory. Returns list of error messages."""

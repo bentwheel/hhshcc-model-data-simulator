@@ -66,7 +66,8 @@ def parse_ndc_to_rxc(tables_path: Path) -> pd.DataFrame:
 
     Returns DataFrame with columns: NDC (str, 11-digit), RXC (int), RXC_LABEL (str)
     """
-    df = pd.read_excel(tables_path, sheet_name="Table 10a", dtype=str)
+    # The sheet has a title row, subtitle row, and blank row before the actual headers
+    df = pd.read_excel(tables_path, sheet_name="Table 10a", header=3, dtype=str)
 
     # Normalize column names
     df.columns = df.columns.str.strip().str.upper()
@@ -95,7 +96,8 @@ def parse_hcpcs_to_rxc(tables_path: Path) -> pd.DataFrame:
 
     Returns DataFrame with columns: HCPCS (str), RXC (int), RXC_LABEL (str)
     """
-    df = pd.read_excel(tables_path, sheet_name="Table 10b", dtype=str)
+    # The sheet has a title row, subtitle row, and blank row before the actual headers
+    df = pd.read_excel(tables_path, sheet_name="Table 10b", header=3, dtype=str)
 
     # Normalize column names
     df.columns = df.columns.str.strip().str.upper()
