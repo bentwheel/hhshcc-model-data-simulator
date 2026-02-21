@@ -1,7 +1,9 @@
 """Process MEPS FYC data into PERSON-level demographic fields."""
 
+import calendar
 import logging
 
+import numpy as np
 import pandas as pd
 
 from hhshcc_sim.config import SimulatorConfig
@@ -84,6 +86,12 @@ def process_demographics(
     # leaving the infant age band empty.
     dob_offset = config.benefit_year - meps_year
     df["DOBYY"] = df["DOBYY"] + dob_offset
+
+    # Clamp DOBDD to the max valid day for the shifted year (handles Feb 29 -> non-leap)
+    max_days = df.apply(
+        lambda row: calendar.monthrange(row["DOBYY"], row["DOBMM"])[1], axis=1
+    )
+    df["DOBDD"] = np.minimum(df["DOBDD"], max_days)
 
     # Vectorized DOB and AGE_LAST (no per-row apply needed)
     df["DOB"] = df["DOBYY"] * 10000 + df["DOBMM"] * 100 + df["DOBDD"]
