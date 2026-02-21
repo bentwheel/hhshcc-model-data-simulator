@@ -4,8 +4,10 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from hhshcc_sim.config import SimulatorConfig
+from hhshcc_sim.utils import tqdm_disabled
 
 logger = logging.getLogger(__name__)
 
@@ -116,28 +118,38 @@ def process_enrollment(
         ENROLID, ENROLDURATION, METAL, CSR_INDICATOR
     """
     rng = np.random.default_rng(config.random_seed)
-    records = []
 
-    for _, row in demographics_df.iterrows():
-        enrolid = row["ENROLID"]
-        age = int(row["AGE_LAST"])
-        povlev = float(row.get("POVLEV", 400.0))
-        n_months = int(row["N_ENROLLED_MONTHS"])
+    # Vectorize ENROLDURATION: clip to [1, 12]
+    enrolduration = np.clip(demographics_df["N_ENROLLED_MONTHS"].values.astype(int), 1, 12)
 
-        # ENROLDURATION: directly from count of private coverage months (1-12)
-        enrolduration = max(1, min(12, n_months))
+    # Metal must remain per-row (probability distribution varies by age + income)
+    ages = demographics_df["AGE_LAST"].astype(int).values
+    povlevs = demographics_df["POVLEV"].fillna(400.0).astype(float).values
+    metals = [
+        simulate_metal_level(int(a), float(p), rng)
+        for a, p in tqdm(
+            zip(ages, povlevs),
+            total=len(ages),
+            desc="Enrollment",
+            disable=tqdm_disabled(),
+            leave=False,
+        )
+    ]
 
-        metal = simulate_metal_level(age, povlev, rng)
-        csr = simulate_csr_indicator(metal, povlev, rng)
+    # Vectorize CSR_INDICATOR: CSR=3 only for silver + income 100-200% FPL
+    metals_arr = np.array(metals)
+    csr = np.where(
+        (metals_arr == "silver") & (povlevs >= 100) & (povlevs < 200),
+        3, 1,
+    )
 
-        records.append({
-            "ENROLID": enrolid,
-            "ENROLDURATION": enrolduration,
-            "METAL": metal,
-            "CSR_INDICATOR": csr,
-        })
+    result = pd.DataFrame({
+        "ENROLID": demographics_df["ENROLID"].values,
+        "ENROLDURATION": enrolduration,
+        "METAL": metals,
+        "CSR_INDICATOR": csr,
+    })
 
-    result = pd.DataFrame(records)
     logger.info(f"Enrollment processed: {len(result):,} persons")
     logger.info(f"  Metal distribution: {result['METAL'].value_counts().to_dict()}")
     logger.info(f"  CSR distribution: {result['CSR_INDICATOR'].value_counts().to_dict()}")

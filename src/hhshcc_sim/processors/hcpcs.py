@@ -4,8 +4,10 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from hhshcc_sim.config import SimulatorConfig
+from hhshcc_sim.utils import tqdm_disabled
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +24,11 @@ def build_rxc_crosswalk(
     """
     ndc_rxc_map = dict(zip(ndc_to_rxc_df["NDC"], ndc_to_rxc_df["RXC"].astype(int)))
 
-    rxc_hcpcs_map: dict[int, list[str]] = {}
-    for _, row in hcpcs_to_rxc_df.iterrows():
-        rxc = int(row["RXC"])
-        hcpcs = row["HCPCS"]
-        rxc_hcpcs_map.setdefault(rxc, []).append(hcpcs)
+    rxc_hcpcs_map = (
+        hcpcs_to_rxc_df.groupby(hcpcs_to_rxc_df["RXC"].astype(int))["HCPCS"]
+        .apply(list)
+        .to_dict()
+    )
 
     return ndc_rxc_map, rxc_hcpcs_map
 
@@ -81,7 +83,13 @@ def process_hcpcs(
 
     # For each matched (ENROLID, RXC), pick a HCPCS code from that RXC
     records = []
-    for _, row in matched.iterrows():
+    for _, row in tqdm(
+        matched.iterrows(),
+        total=len(matched),
+        desc="HCPCS crosswalk",
+        disable=tqdm_disabled(),
+        leave=False,
+    ):
         rxc = row["RXC"]
         hcpcs_codes = rxc_hcpcs_map.get(rxc)
         if not hcpcs_codes:

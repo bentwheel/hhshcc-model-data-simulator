@@ -5,8 +5,10 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from hhshcc_sim.config import SimulatorConfig
+from hhshcc_sim.utils import tqdm_disabled
 from hhshcc_sim.processors.icd10_expansion import (
     expand_icd10_code,
     expand_icd10_codes_mode,
@@ -30,6 +32,22 @@ def _determine_setting(row: pd.Series) -> str:
     if row.get("OPCOND", 2) == 1 or row.get("OBCOND", 2) == 1:
         return "op"
     return "total"
+
+
+def _vectorize_settings(df: pd.DataFrame) -> pd.Series:
+    """Vectorized version of _determine_setting using np.select."""
+    ercond = df["ERCOND"] if "ERCOND" in df.columns else pd.Series(2, index=df.index)
+    ipcond = df["IPCOND"] if "IPCOND" in df.columns else pd.Series(2, index=df.index)
+    opcond = df["OPCOND"] if "OPCOND" in df.columns else pd.Series(2, index=df.index)
+    obcond = df["OBCOND"] if "OBCOND" in df.columns else pd.Series(2, index=df.index)
+
+    conditions = [
+        ercond == 1,
+        ipcond == 1,
+        (opcond == 1) | (obcond == 1),
+    ]
+    choices = ["ed", "ip", "op"]
+    return pd.Series(np.select(conditions, choices, default="total"), index=df.index)
 
 
 def process_diagnoses(
@@ -104,10 +122,20 @@ def _process_single(
     benefit_year = config.benefit_year
     records = []
 
-    for i, (_, row) in enumerate(df.iterrows()):
+    # Vectorize setting determination upfront
+    df = df.copy()
+    df["_SETTING"] = _vectorize_settings(df)
+
+    for i, (_, row) in enumerate(tqdm(
+        df.iterrows(),
+        total=len(df),
+        desc="Diagnoses (single)",
+        disable=tqdm_disabled(),
+        leave=False,
+    )):
         person_id = row["DUPERSID"]
         icd10cdx = row[icd10_col]
-        setting = _determine_setting(row)
+        setting = row["_SETTING"]
 
         # Expand 3-char code to full code
         full_code = expand_icd10_code(icd10cdx, setting, prob_tables, rng)
@@ -148,9 +176,20 @@ def _process_mode(
     benefit_year = config.benefit_year
     records = []
 
-    for person_id, person_conds in df.groupby("DUPERSID"):
+    # Vectorize setting determination upfront
+    df = df.copy()
+    df["_SETTING"] = _vectorize_settings(df)
+
+    grouped = df.groupby("DUPERSID")
+    for person_id, person_conds in tqdm(
+        grouped,
+        total=len(grouped),
+        desc="Diagnoses (mode)",
+        disable=tqdm_disabled(),
+        leave=False,
+    ):
         icd10cdx_list = person_conds[icd10_col].tolist()
-        settings = [_determine_setting(row) for _, row in person_conds.iterrows()]
+        settings = person_conds["_SETTING"].tolist()
 
         # Generate mode profile
         expanded = expand_icd10_codes_mode(

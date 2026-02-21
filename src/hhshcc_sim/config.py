@@ -18,6 +18,7 @@ class SimulatorConfig:
     age_min: int = 0
     age_max: int = 64
     skip_download: bool = False
+    output_prefix: str = ""
 
     def __post_init__(self) -> None:
         self.data_dir = Path(self.data_dir)

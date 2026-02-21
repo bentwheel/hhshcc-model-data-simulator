@@ -117,3 +117,30 @@ Tests the writing of the four HHS-HCC DIY input CSV files.
 | `test_write_hcpcs_file_empty` | An empty HCPCS DataFrame produces a header-only CSV |
 | `test_write_hcpcs_file_with_data` | A HCPCS DataFrame with records writes correct columns and values |
 | `test_write_all_output_files` | All four output files (`PERSON.csv`, `DIAG.csv`, `NDC.csv`, `HCPCS.csv`) are created and exist on disk |
+
+### `test_manifest.py` &mdash; Reproducibility Manifest (6 tests)
+
+Tests the JSON reproducibility manifest written alongside the output files.
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_manifest_created` | `manifest.json` is created with all expected top-level keys (`timestamp`, `python_version`, `config`, `output_files`, `validation`, `elapsed_seconds`) |
+| `test_manifest_config_values` | Config values in the manifest match the `SimulatorConfig` used (MEPS years, benefit year, seed, DX mode, age range) |
+| `test_manifest_row_counts` | Per-file row counts and `size_bytes` are recorded correctly |
+| `test_manifest_validation_passed` | An error-free run produces `validation.passed: true` with empty errors list |
+| `test_manifest_validation_failed` | Validation errors are captured in the manifest with correct count and messages |
+| `test_manifest_with_prefix` | Output prefix is respected in both the manifest filename (`sim_manifest.json`) and the stored config |
+
+### `test_summary.py` &mdash; Summary Report (7 tests)
+
+Tests the end-of-run summary report with frequency tables and per-member utilization.
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_summary_contains_sections` | Summary text includes all expected sections: Configuration, Output Files, Age Group Distribution, Metal Level Distribution, CSR Indicator Distribution, Per-Member Utilization, Unique Code Counts, Validation, and Elapsed |
+| `test_summary_config_values` | CLI configuration values (MEPS years, benefit year, seed, DX mode, age range) appear in the summary |
+| `test_summary_age_bands_sum_to_total` | Age band row counts are present and the total person count is correct |
+| `test_summary_empty_hcpcs` | An empty HCPCS DataFrame is handled without errors and unique HCPCS count is reported |
+| `test_summary_validation_failed` | Validation failure is reflected in the summary with error count and individual error messages |
+| `test_write_summary_creates_file` | `write_summary` creates `SUMMARY.txt` on disk with correct content |
+| `test_write_summary_with_prefix` | Output prefix is respected in the summary filename (`sim_SUMMARY.txt`) |

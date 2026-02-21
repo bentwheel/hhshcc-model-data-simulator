@@ -88,6 +88,13 @@ SUPPORTED_BENEFIT_YEARS = list(range(2023, 2027))
     help="Skip downloading; use cached files only",
 )
 @click.option(
+    "--output-prefix",
+    type=str,
+    default="",
+    show_default=True,
+    help="Prefix for output filenames (e.g., 'sim_' produces sim_PERSON.csv)",
+)
+@click.option(
     "-v", "--verbose",
     count=True,
     help="Increase verbosity (-v for INFO, -vv for DEBUG)",
@@ -103,6 +110,7 @@ def main(
     age_min: int,
     age_max: int,
     no_download: bool,
+    output_prefix: str,
     verbose: int,
 ) -> None:
     """Generate simulated HHS-HCC DIY input files from MEPS data."""
@@ -151,6 +159,7 @@ def main(
         age_min=age_min,
         age_max=age_max,
         skip_download=no_download,
+        output_prefix=output_prefix,
     )
 
     run_pipeline(config)

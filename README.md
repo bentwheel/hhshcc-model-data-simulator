@@ -26,7 +26,7 @@ This tool fills that gap by constructing plausible, HIPAA-safe input files deriv
 
 ## How It Works
 
-The simulator runs a nine-stage pipeline:
+The simulator runs a ten-stage pipeline:
 
 1. **Download data** &mdash; Three MEPS Public Use Files (Full-Year Consolidated, Medical Conditions, Prescribed Medicines) are downloaded as Stata files from AHRQ for each specified MEPS year. California ICD-10 frequency tables and the CMS DIY Tables Excel file (containing RXC crosswalks) are also downloaded. Multiple MEPS years can be combined for a larger sample.
 2. **Build expansion and crosswalk tables** &mdash; California ICD-10 frequency data is parsed into probability tables for code expansion. CMS DIY Tables 10a (NDC&rarr;RXC) and 10b (HCPCS&rarr;RXC) are parsed into crosswalk lookups for HCPCS generation.
@@ -37,6 +37,7 @@ The simulator runs a nine-stage pipeline:
 7. **Generate HCPCS codes** &mdash; For each person with NDC codes that map to an RXC (Prescription Drug Category) via CMS Table 10a, a corresponding HCPCS procedure code is assigned from the same RXC via Table 10b. This simulates the scenario where a drug identified by NDC could also be identified via a HCPCS code (e.g., J-codes for drugs administered in clinical settings).
 8. **Write output files** &mdash; Produces the four CSV files matching the CY2025 HHS-HCC DIY input specification. Diagnosis service dates are placed in the benefit year (not the MEPS data year) so they fall within the model's expected date range.
 9. **Validate** &mdash; Checks output format, value ranges, and referential integrity across files.
+10. **Report** &mdash; Writes a `manifest.json` reproducibility sidecar (config, versions, timestamps, row counts, validation results) and a `SUMMARY.txt` report with frequency tables by age group, metal level, CSR indicator, and per-member utilization.
 
 ### Output Files
 
@@ -46,6 +47,8 @@ The simulator runs a nine-stage pipeline:
 | `DIAG.csv` | One row per diagnosis: enrollee ID, ICD-10-CM code (expanded), service date, age at diagnosis |
 | `NDC.csv` | One row per drug: enrollee ID, 11-digit NDC code |
 | `HCPCS.csv` | One row per procedure: enrollee ID, HCPCS code (derived from NDC&rarr;RXC&rarr;HCPCS crosswalk) |
+| `SUMMARY.txt` | Human-readable run summary with configuration, row counts, frequency tables, and per-member utilization |
+| `manifest.json` | Machine-readable reproducibility manifest with config, git commit, package version, row counts, and validation results |
 
 ### ICD-10 Code Expansion
 
@@ -97,6 +100,9 @@ hhshcc-sim --meps-years 2022 --benefit-year 2025 --age-min 21 --age-max 64 -v
 # Use mode-based ICD-10 expansion with 500 simulations per person
 hhshcc-sim --meps-years 2022 --benefit-year 2025 --dx-mode mode --n-simulations 500 -v
 
+# Prefix output filenames (e.g., sim_PERSON.csv, sim_DIAG.csv, ...)
+hhshcc-sim --meps-years 2022 --benefit-year 2025 --output-prefix sim_ -v
+
 # Skip downloading if data is already cached
 hhshcc-sim --meps-years 2022 --benefit-year 2025 --no-download -v
 ```
@@ -126,8 +132,9 @@ Output files are written to `./data/output/` by default.
 | `--n-simulations` | `500` | Simulations per person (only with `--dx-mode mode`) |
 | `--age-min` | `0` | Minimum age filter (based on benefit year) |
 | `--age-max` | `64` | Maximum age filter (based on benefit year) |
+| `--output-prefix` | `""` | Prefix for output filenames (e.g., `sim_` produces `sim_PERSON.csv`) |
 | `--no-download` | off | Skip downloads, use cached files only |
-| `-v` / `-vv` | off | Verbosity (INFO / DEBUG) |
+| `-v` / `-vv` | off | Verbosity (INFO / DEBUG); also enables progress bars |
 
 ### Running Tests
 
@@ -135,7 +142,7 @@ Output files are written to `./data/output/` by default.
 pytest
 ```
 
-The test suite (38 tests) runs entirely against mock data fixtures &mdash; no network access or real MEPS data is required. See [`tests/README.md`](tests/README.md) for a detailed description of every test case.
+The test suite (51 tests) runs entirely against mock data fixtures &mdash; no network access or real MEPS data is required. See [`tests/README.md`](tests/README.md) for a detailed description of every test case.
 
 ## Data Sources
 

@@ -12,6 +12,7 @@ def write_person_file(
     demographics_df: pd.DataFrame,
     enrollment_df: pd.DataFrame,
     output_dir: Path,
+    prefix: str = "",
 ) -> Path:
     """Write PERSON.csv by merging demographics and enrollment data.
 
@@ -36,13 +37,13 @@ def write_person_file(
     person["ENROLDURATION"] = person["ENROLDURATION"].astype(int)
     person["METAL"] = person["METAL"].str.lower()
 
-    path = output_dir / "PERSON.csv"
+    path = output_dir / f"{prefix}PERSON.csv"
     person.to_csv(path, index=False)
-    logger.info(f"Wrote PERSON.csv: {len(person):,} rows -> {path}")
+    logger.info(f"Wrote {prefix}PERSON.csv: {len(person):,} rows -> {path}")
     return path
 
 
-def write_diag_file(diag_df: pd.DataFrame, output_dir: Path) -> Path:
+def write_diag_file(diag_df: pd.DataFrame, output_dir: Path, prefix: str = "") -> Path:
     """Write DIAG.csv.
 
     Columns: ENROLID, DIAG, DIAGNOSIS_SERVICE_DATE, AGE_AT_DIAGNOSIS
@@ -56,13 +57,13 @@ def write_diag_file(diag_df: pd.DataFrame, output_dir: Path) -> Path:
     diag["DIAGNOSIS_SERVICE_DATE"] = diag["DIAGNOSIS_SERVICE_DATE"].astype(int)
     diag["AGE_AT_DIAGNOSIS"] = diag["AGE_AT_DIAGNOSIS"].astype(int)
 
-    path = output_dir / "DIAG.csv"
+    path = output_dir / f"{prefix}DIAG.csv"
     diag.to_csv(path, index=False)
-    logger.info(f"Wrote DIAG.csv: {len(diag):,} rows -> {path}")
+    logger.info(f"Wrote {prefix}DIAG.csv: {len(diag):,} rows -> {path}")
     return path
 
 
-def write_ndc_file(ndc_df: pd.DataFrame, output_dir: Path) -> Path:
+def write_ndc_file(ndc_df: pd.DataFrame, output_dir: Path, prefix: str = "") -> Path:
     """Write NDC.csv.
 
     Columns: ENROLID, NDC
@@ -70,18 +71,18 @@ def write_ndc_file(ndc_df: pd.DataFrame, output_dir: Path) -> Path:
     ndc = ndc_df[["ENROLID", "NDC"]].copy()
     ndc["NDC"] = ndc["NDC"].astype(str).str.zfill(11)
 
-    path = output_dir / "NDC.csv"
+    path = output_dir / f"{prefix}NDC.csv"
     ndc.to_csv(path, index=False)
-    logger.info(f"Wrote NDC.csv: {len(ndc):,} rows -> {path}")
+    logger.info(f"Wrote {prefix}NDC.csv: {len(ndc):,} rows -> {path}")
     return path
 
 
-def write_hcpcs_file(hcpcs_df: pd.DataFrame, output_dir: Path) -> Path:
+def write_hcpcs_file(hcpcs_df: pd.DataFrame, output_dir: Path, prefix: str = "") -> Path:
     """Write HCPCS.csv.
 
     Columns: ENROLID, HCPCS
     """
-    path = output_dir / "HCPCS.csv"
+    path = output_dir / f"{prefix}HCPCS.csv"
 
     if len(hcpcs_df) == 0:
         hcpcs = pd.DataFrame(columns=["ENROLID", "HCPCS"])
@@ -90,7 +91,7 @@ def write_hcpcs_file(hcpcs_df: pd.DataFrame, output_dir: Path) -> Path:
         hcpcs["HCPCS"] = hcpcs["HCPCS"].astype(str).str.strip()
 
     hcpcs.to_csv(path, index=False)
-    logger.info(f"Wrote HCPCS.csv: {len(hcpcs):,} rows -> {path}")
+    logger.info(f"Wrote {prefix}HCPCS.csv: {len(hcpcs):,} rows -> {path}")
     return path
 
 
@@ -101,6 +102,7 @@ def write_all_output_files(
     ndc_df: pd.DataFrame,
     hcpcs_df: pd.DataFrame,
     output_dir: Path,
+    prefix: str = "",
 ) -> dict[str, Path]:
     """Write all four HHS-HCC DIY input files.
 
@@ -109,8 +111,8 @@ def write_all_output_files(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     return {
-        "person": write_person_file(demographics_df, enrollment_df, output_dir),
-        "diag": write_diag_file(diag_df, output_dir),
-        "ndc": write_ndc_file(ndc_df, output_dir),
-        "hcpcs": write_hcpcs_file(hcpcs_df, output_dir),
+        "person": write_person_file(demographics_df, enrollment_df, output_dir, prefix),
+        "diag": write_diag_file(diag_df, output_dir, prefix),
+        "ndc": write_ndc_file(ndc_df, output_dir, prefix),
+        "hcpcs": write_hcpcs_file(hcpcs_df, output_dir, prefix),
     }

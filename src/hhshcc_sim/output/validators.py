@@ -139,20 +139,20 @@ def validate_hcpcs_file(path: Path, person_path: Path) -> list[str]:
     return errors
 
 
-def validate_all_outputs(output_dir: Path) -> list[str]:
+def validate_all_outputs(output_dir: Path, prefix: str = "") -> list[str]:
     """Run all validators on the output directory. Returns list of error messages."""
     errors = []
 
-    person_path = output_dir / "PERSON.csv"
-    diag_path = output_dir / "DIAG.csv"
-    ndc_path = output_dir / "NDC.csv"
-    hcpcs_path = output_dir / "HCPCS.csv"
+    person_path = output_dir / f"{prefix}PERSON.csv"
+    diag_path = output_dir / f"{prefix}DIAG.csv"
+    ndc_path = output_dir / f"{prefix}NDC.csv"
+    hcpcs_path = output_dir / f"{prefix}HCPCS.csv"
 
     for path, name in [
-        (person_path, "PERSON.csv"),
-        (diag_path, "DIAG.csv"),
-        (ndc_path, "NDC.csv"),
-        (hcpcs_path, "HCPCS.csv"),
+        (person_path, f"{prefix}PERSON.csv"),
+        (diag_path, f"{prefix}DIAG.csv"),
+        (ndc_path, f"{prefix}NDC.csv"),
+        (hcpcs_path, f"{prefix}HCPCS.csv"),
     ]:
         if not path.exists():
             errors.append(f"{name} not found in {output_dir}")

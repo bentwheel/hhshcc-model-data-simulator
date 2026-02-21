@@ -13,6 +13,8 @@ from hhshcc_sim.data.cms_diy_download import (
     parse_ndc_to_rxc,
 )
 from hhshcc_sim.data.meps_download import download_all_meps_files
+from hhshcc_sim.output.manifest import write_manifest
+from hhshcc_sim.output.summary import build_summary, write_summary
 from hhshcc_sim.output.validators import validate_all_outputs
 from hhshcc_sim.output.writers import write_all_output_files
 from hhshcc_sim.processors.demographics import process_demographics
@@ -158,23 +160,29 @@ def run_pipeline(config: SimulatorConfig) -> None:
     logger.info("=" * 60)
     logger.info("Stage 7: Writing output files")
     output_paths = write_all_output_files(
-        demographics_df, enrollment_df, diag_df, ndc_df, hcpcs_df, config.output_dir
+        demographics_df, enrollment_df, diag_df, ndc_df, hcpcs_df,
+        config.output_dir, prefix=config.output_prefix,
     )
 
     # Stage 8: Validate
     logger.info("=" * 60)
     logger.info("Stage 8: Validating output files")
-    errors = validate_all_outputs(config.output_dir)
+    errors = validate_all_outputs(config.output_dir, prefix=config.output_prefix)
 
     elapsed = time.time() - start
-    logger.info("=" * 60)
-    if errors:
-        logger.warning(f"Pipeline completed with {len(errors)} validation errors in {elapsed:.1f}s")
-        for err in errors:
-            logger.warning(f"  - {err}")
-    else:
-        logger.info(f"Pipeline completed successfully in {elapsed:.1f}s")
 
-    logger.info("Output files:")
-    for name, path in output_paths.items():
-        logger.info(f"  {name}: {path}")
+    # Stage 9: Write reproducibility manifest
+    row_counts = {
+        "person": len(demographics_df),
+        "diag": len(diag_df),
+        "ndc": len(ndc_df),
+        "hcpcs": len(hcpcs_df),
+    }
+    write_manifest(config, output_paths, row_counts, errors, elapsed)
+
+    # Stage 10: Write summary report
+    summary_text = build_summary(
+        config, demographics_df, enrollment_df, diag_df, ndc_df, hcpcs_df,
+        errors, elapsed,
+    )
+    write_summary(summary_text, config.output_dir, prefix=config.output_prefix)

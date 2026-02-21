@@ -1,13 +1,12 @@
 """Process MEPS FYC data into PERSON-level demographic fields."""
 
 import logging
-from datetime import date
 
 import pandas as pd
 
 from hhshcc_sim.config import SimulatorConfig
 from hhshcc_sim.data.meps_registry import MEPS_MONTH_ABBREVS
-from hhshcc_sim.utils.date_helpers import calculate_age, make_dob, simulate_birth_day
+from hhshcc_sim.utils.date_helpers import simulate_birth_day
 
 logger = logging.getLogger(__name__)
 
@@ -79,18 +78,13 @@ def process_demographics(
         ),
         axis=1,
     )
-    df["DOB"] = df.apply(
-        lambda row: make_dob(row["DOBYY"], row["DOBMM"], row["DOBDD"]), axis=1
-    )
+    # Vectorized DOB and AGE_LAST (no per-row apply needed)
+    df["DOB"] = df["DOBYY"] * 10000 + df["DOBMM"] * 100 + df["DOBDD"]
 
-    # Calculate AGE_LAST as of Dec 31 of the BENEFIT year (not the MEPS year)
-    end_of_benefit_year = date(config.benefit_year, 12, 31)
-    df["AGE_LAST"] = df.apply(
-        lambda row: calculate_age(
-            date(row["DOBYY"], row["DOBMM"], row["DOBDD"]), end_of_benefit_year
-        ),
-        axis=1,
-    )
+    # AGE_LAST as of Dec 31 of the benefit year. Since the reference date is always
+    # Dec 31 (month=12, day=31), no birthday-hasn't-happened adjustment is ever needed:
+    # (12, 31) is never less than any valid (month, day).
+    df["AGE_LAST"] = config.benefit_year - df["DOBYY"]
 
     # Filter by age range (based on benefit year age)
     df = df[(df["AGE_LAST"] >= config.age_min) & (df["AGE_LAST"] <= config.age_max)].copy()
