@@ -155,7 +155,7 @@ The test suite (61 tests) runs entirely against mock data fixtures &mdash; no ne
 
 - **MEPS Public Use Files** &mdash; Annual survey microdata from the Agency for Healthcare Research and Quality (AHRQ). Includes demographics, insurance coverage, medical conditions (truncated ICD-10-CM codes), and prescribed medicines (NDC codes). Available at [meps.ahrq.gov](https://meps.ahrq.gov/mepsweb/).
 - **California HCAI Diagnosis Code Frequencies** &mdash; Aggregate diagnosis code frequency counts from California hospital emergency department, inpatient, and ambulatory surgery settings. Used to build probability distributions for expanding 3-character truncated ICD-10 codes to their full specificity. Available at [data.chhs.ca.gov](https://data.chhs.ca.gov/).
-- **CMS HHS-HCC DIY Tables** &mdash; The official CMS DIY software distribution includes Excel tables mapping NDC codes to RXC (Prescription Drug Category) values (Table 10a) and HCPCS codes to RXC values (Table 10b). These crosswalks are used to generate HCPCS records from MEPS NDC data. Available at [cms.gov](https://www.cms.gov/medicare/payment/medicare-advantage-rates-statistics/risk-adjustment).
+- **CMS HHS-HCC DIY Tables** &mdash; The official CMS DIY software distribution includes Excel tables mapping NDC codes to RXC (Prescription Drug Category) values (Table 10a) and HCPCS codes to RXC values (Table 10b). These crosswalks are used to generate HCPCS records from MEPS NDC data. Available at [cms.gov](https://www.cms.gov/marketplace/resources/regulations-guidance).
 
 ## Related Projects
 
