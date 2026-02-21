@@ -30,7 +30,7 @@ The simulator runs a ten-stage pipeline:
 
 1. **Download data** &mdash; Three MEPS Public Use Files (Full-Year Consolidated, Medical Conditions, Prescribed Medicines) are downloaded as Stata files from AHRQ for each specified MEPS year. California ICD-10 frequency tables and the CMS DIY Tables Excel file (containing RXC crosswalks) are also downloaded. Multiple MEPS years can be combined for a larger sample.
 2. **Build expansion and crosswalk tables** &mdash; California ICD-10 frequency data is parsed into probability tables for code expansion. CMS DIY Tables 10a (NDC&rarr;RXC) and 10b (HCPCS&rarr;RXC) are parsed into crosswalk lookups for HCPCS generation.
-3. **Process demographics** &mdash; For each MEPS year: extracts person-level fields from the FYC file, filters to ages 0&ndash;64 (as of the benefit year) with private insurance coverage, and simulates a birth day using deterministic hashing. ENROLIDs are prefixed with the MEPS year to ensure uniqueness when combining years.
+3. **Process demographics** &mdash; For each MEPS year: extracts person-level fields from the FYC file, filters to ages 0&ndash;64 (as of the benefit year) with private insurance coverage, and simulates a birth day using deterministic hashing. Birth years are shifted by the difference between the benefit year and MEPS year to preserve the MEPS age distribution. The eligible population is then resampled to the target sample size (default 500) using MEPS survey weights, producing a representative sample. ENROLIDs are prefixed with the MEPS year to ensure uniqueness when combining years.
 4. **Process enrollment** &mdash; Counts months of private coverage. Simulates metal level and CSR indicator informed by the person's income (poverty level relative to FPL) and age.
 5. **Expand ICD-10 codes** &mdash; MEPS truncates all diagnosis codes to 3 characters for confidentiality. This stage uses California claims frequency data to probabilistically expand each truncated code to a plausible full ICD-10-CM code, weighted by the care setting (ED, inpatient, outpatient) in which the condition was observed.
 6. **Process prescriptions** &mdash; Extracts 11-digit NDC codes from the MEPS Prescribed Medicines file.
@@ -103,6 +103,12 @@ hhshcc-sim --meps-years 2022 --benefit-year 2025 --dx-mode mode --n-simulations 
 # Prefix output filenames (e.g., sim_PERSON.csv, sim_DIAG.csv, ...)
 hhshcc-sim --meps-years 2022 --benefit-year 2025 --output-prefix sim_ -v
 
+# Generate a larger sample (1000 persons instead of default 500)
+hhshcc-sim --meps-years 2022 --benefit-year 2025 --sample-size 1000 -v
+
+# Use the full MEPS population (no resampling)
+hhshcc-sim --meps-years 2022 --benefit-year 2025 --sample-size 0 -v
+
 # Skip downloading if data is already cached
 hhshcc-sim --meps-years 2022 --benefit-year 2025 --no-download -v
 ```
@@ -112,11 +118,11 @@ Output files are written to `./data/output/` by default.
 ### MEPS Years vs. Benefit Year
 
 - **`--meps-years`**: The MEPS survey year(s) from which demographics, diagnoses, and prescriptions are sourced. Multiple years can be specified to increase sample size; ENROLIDs are prefixed with the MEPS year to prevent collisions.
-- **`--benefit-year`**: The HHS-HCC model year the output is intended for (2023&ndash;2026). Diagnosis service dates are placed in this year, and `AGE_LAST` is calculated as of December 31 of this year. Dates of birth are **not** shifted &mdash; only service dates and ages are adjusted to align with the model's expected benefit year.
+- **`--benefit-year`**: The HHS-HCC model year the output is intended for (2023&ndash;2026). Diagnosis service dates are placed in this year, and `AGE_LAST` is calculated as of December 31 of this year. Birth years are shifted forward by the difference between the benefit year and the MEPS year so that the MEPS age distribution is preserved (e.g., an infant in MEPS 2022 remains an infant when the benefit year is 2025).
 
 ### Supported Years
 
-- **MEPS data years**: 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023
+- **MEPS data years**: 2018, 2019, 2020, 2021, 2022, 2023
 - **Benefit years**: 2023, 2024, 2025, 2026
 
 ### CLI Options
@@ -133,6 +139,7 @@ Output files are written to `./data/output/` by default.
 | `--age-min` | `0` | Minimum age filter (based on benefit year) |
 | `--age-max` | `64` | Maximum age filter (based on benefit year) |
 | `--output-prefix` | `""` | Prefix for output filenames (e.g., `sim_` produces `sim_PERSON.csv`) |
+| `--sample-size` | `500` | Persons to sample per MEPS year using survey weights (0 = full population) |
 | `--no-download` | off | Skip downloads, use cached files only |
 | `-v` / `-vv` | off | Verbosity (INFO / DEBUG); also enables progress bars |
 
@@ -142,7 +149,7 @@ Output files are written to `./data/output/` by default.
 pytest
 ```
 
-The test suite (51 tests) runs entirely against mock data fixtures &mdash; no network access or real MEPS data is required. See [`tests/README.md`](tests/README.md) for a detailed description of every test case.
+The test suite (61 tests) runs entirely against mock data fixtures &mdash; no network access or real MEPS data is required. See [`tests/README.md`](tests/README.md) for a detailed description of every test case.
 
 ## Data Sources
 

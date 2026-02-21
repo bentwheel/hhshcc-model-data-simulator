@@ -22,7 +22,7 @@ pytest tests/test_hcpcs.py::test_build_rxc_crosswalk
 
 | Fixture | Description |
 |---------|-------------|
-| `mock_fyc_df` | Small FYC-like DataFrame with 5 persons, varying ages/sex/coverage/income, using MEPS 2022 variable naming conventions |
+| `mock_fyc_df` | Small FYC-like DataFrame with 5 persons, varying ages/sex/coverage/income/survey weights, using MEPS 2022 variable naming conventions |
 | `mock_cond_df` | 5 condition records with known 3-character ICD-10 codes and care setting flags |
 | `mock_pmed_df` | 5 prescription records with known NDC codes (including one missing-data sentinel) |
 | `mock_ca_freq_df` | ICD-10 frequency table for testing code expansion (9 rows across 5 prefixes) |
@@ -38,7 +38,7 @@ Tests the extraction and transformation of person-level fields from the MEPS Ful
 | Test | What it verifies |
 |------|-----------------|
 | `test_process_demographics_basic` | Mock FYC data produces persons with all required output columns (`ENROLID`, `SEX`, `DOB`, `AGE_LAST`, `POVLEV`, `ENROLLED_MONTHS`); `SEX` is 1 or 2; `DOB` is a valid 8-digit date; ages fall within 0&ndash;64 |
-| `test_process_demographics_age_based_on_benefit_year` | `AGE_LAST` is calculated relative to the benefit year (2025), not the MEPS data year (2022) &mdash; a person born in 1985 is age 40, not 37 |
+| `test_process_demographics_age_preserves_meps_distribution` | DOBs are shifted so `AGE_LAST` preserves the person's age from the MEPS data year &mdash; a person born in 1985 in MEPS 2022 remains age 37, with DOBYY shifted to 1988 |
 | `test_process_demographics_age_filter` | Setting `age_min=21` correctly excludes persons under 21 as of the benefit year |
 | `test_process_demographics_deterministic` | Identical config and seed produce identical `DOB` values across two runs |
 | `test_process_demographics_different_seed` | Different random seeds produce different simulated birth days |
@@ -144,3 +144,20 @@ Tests the end-of-run summary report with frequency tables and per-member utiliza
 | `test_summary_validation_failed` | Validation failure is reflected in the summary with error count and individual error messages |
 | `test_write_summary_creates_file` | `write_summary` creates `SUMMARY.txt` on disk with correct content |
 | `test_write_summary_with_prefix` | Output prefix is respected in the summary filename (`sim_SUMMARY.txt`) |
+
+### `test_resampler.py` &mdash; Weighted Population Resampler (10 tests)
+
+Tests the weighted resampling of the MEPS eligible population to a target sample size using survey weights.
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_resample_produces_correct_size` | Output has exactly `sample_size` rows |
+| `test_resample_produces_large_sample` | Can oversample beyond the original population size (100 from 5 persons) |
+| `test_resample_adds_suffixes` | All ENROLIDs have `_X` suffixes where X is a digit |
+| `test_resample_uses_weights` | Higher-weighted persons appear more frequently in a large sample |
+| `test_resample_deterministic` | Same seed produces identical resampled ENROLIDs |
+| `test_resample_different_seed` | Different seeds produce different results |
+| `test_expand_duplicates_correctly` | Downstream data rows (diagnoses, NDCs) are correctly duplicated for each copy of a person |
+| `test_expand_empty_df` | Empty DataFrame is handled gracefully, returning empty with correct columns |
+| `test_resample_map_keys_are_unique` | All new suffixed ENROLIDs in the resample map are unique |
+| `test_resample_no_weight_column` | Falls back to equal weights when the survey weight column is missing from the FYC file |

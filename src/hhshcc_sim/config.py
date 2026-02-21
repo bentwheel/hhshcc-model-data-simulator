@@ -19,6 +19,7 @@ class SimulatorConfig:
     age_max: int = 64
     skip_download: bool = False
     output_prefix: str = ""
+    sample_size: int = 500  # persons per MEPS year; 0 = use full population
 
     def __post_init__(self) -> None:
         self.data_dir = Path(self.data_dir)

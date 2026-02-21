@@ -62,6 +62,7 @@ def build_summary(
         f"  Random seed:        {config.random_seed}",
         f"  DX mode:            {config.dx_mode}",
         f"  Age range:          {config.age_min}-{config.age_max}",
+        f"  Sample size:        {config.sample_size if config.sample_size > 0 else 'full population'}",
         f"  Output prefix:      {prefix_display}",
         f"  Output directory:   {config.output_dir}",
         "",

@@ -26,6 +26,7 @@ from hhshcc_sim.processors.icd10_expansion import (
     load_ca_icd10_frequencies,
 )
 from hhshcc_sim.processors.prescriptions import process_prescriptions
+from hhshcc_sim.processors.resampler import expand_for_resampled, resample_population
 from hhshcc_sim.utils.io import read_stata
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,10 @@ def run_pipeline(config: SimulatorConfig) -> None:
     logger.info(f"  Random seed: {config.random_seed}")
     logger.info(f"  DX mode: {config.dx_mode}")
     logger.info(f"  Age range: {config.age_min}-{config.age_max} (as of {config.benefit_year})")
+    if config.sample_size > 0:
+        logger.info(f"  Sample size: {config.sample_size} per MEPS year")
+    else:
+        logger.info(f"  Sample size: full population (no resampling)")
 
     # Stage 1: Download all data
     logger.info("=" * 60)
@@ -115,6 +120,17 @@ def run_pipeline(config: SimulatorConfig) -> None:
         # Process prescriptions
         logger.info(f"  Processing prescriptions for {meps_year}")
         ndc_df = process_prescriptions(pmed_df, demo_df, config)
+
+        # Resample to target population size (if sample_size > 0)
+        if config.sample_size > 0:
+            demo_df, resample_map = resample_population(
+                demo_df, fyc_df, meps_year, config
+            )
+            enroll_df = expand_for_resampled(enroll_df, resample_map)
+            if len(diag_df) > 0:
+                diag_df = expand_for_resampled(diag_df, resample_map)
+            if len(ndc_df) > 0:
+                ndc_df = expand_for_resampled(ndc_df, resample_map)
 
         # Prefix ENROLIDs with MEPS year for cross-year uniqueness
         # (only needed when combining multiple years, but always applied for consistency)

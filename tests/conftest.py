@@ -32,6 +32,8 @@ def mock_fyc_df():
         "PRIDE22": [1, 2, 1, 2, 1],
         # Poverty level (% FPL)
         "POVLEV22": [350.0, 125.0, 500.0, 180.0, 250.0],
+        # Survey weight (persons represented in US population)
+        "PERWT22F": [15000.0, 25000.0, 10000.0, 20000.0, 30000.0],
     }
     return pd.DataFrame(data)
 

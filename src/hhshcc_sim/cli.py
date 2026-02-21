@@ -95,6 +95,13 @@ SUPPORTED_BENEFIT_YEARS = list(range(2023, 2027))
     help="Prefix for output filenames (e.g., 'sim_' produces sim_PERSON.csv)",
 )
 @click.option(
+    "--sample-size",
+    type=int,
+    default=500,
+    show_default=True,
+    help="Number of persons to sample per MEPS year using survey weights (0 = use full population)",
+)
+@click.option(
     "-v", "--verbose",
     count=True,
     help="Increase verbosity (-v for INFO, -vv for DEBUG)",
@@ -111,6 +118,7 @@ def main(
     age_max: int,
     no_download: bool,
     output_prefix: str,
+    sample_size: int,
     verbose: int,
 ) -> None:
     """Generate simulated HHS-HCC DIY input files from MEPS data."""
@@ -160,6 +168,7 @@ def main(
         age_max=age_max,
         skip_download=no_download,
         output_prefix=output_prefix,
+        sample_size=sample_size,
     )
 
     run_pipeline(config)

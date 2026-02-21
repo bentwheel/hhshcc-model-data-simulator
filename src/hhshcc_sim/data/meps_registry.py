@@ -3,8 +3,6 @@
 # Maps MEPS data year -> { file_type: HC file identifier }
 # Sources: https://meps.ahrq.gov/mepsweb/data_stats/download_data_files.jsp
 MEPS_FILES: dict[int, dict[str, str]] = {
-    2016: {"fyc": "h192", "cond": "h190", "pmed": "h188a"},
-    2017: {"fyc": "h201", "cond": "h199", "pmed": "h197a"},
     2018: {"fyc": "h209", "cond": "h207", "pmed": "h206a"},
     2019: {"fyc": "h216", "cond": "h214", "pmed": "h213a"},
     2020: {"fyc": "h224", "cond": "h222", "pmed": "h220a"},

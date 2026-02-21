@@ -71,6 +71,7 @@ def write_manifest(
             "age_min": config.age_min,
             "age_max": config.age_max,
             "output_prefix": config.output_prefix,
+            "sample_size": config.sample_size,
         },
         "output_files": {
             name: {
