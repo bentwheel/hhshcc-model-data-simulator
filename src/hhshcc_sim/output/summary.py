@@ -119,7 +119,8 @@ def build_summary(
         hcpcs_counts = hcpcs_df.groupby("ENROLID").size().rename("hcpcs") if n_hcpcs > 0 else pd.Series(dtype=int, name="hcpcs")
 
         util = person_ages.set_index("ENROLID").join(dx_counts).join(ndc_counts).join(hcpcs_counts)
-        util = util.fillna(0)
+        for col in ["dx", "ndc", "hcpcs"]:
+            util[col] = util[col].fillna(0)
 
         lines.append("Per-Member Utilization by Age Group")
         lines.append(f"  {'Age Band':<16} {'Avg DX':>8} {'Avg NDC':>8} {'Avg HCPCS':>10}")
