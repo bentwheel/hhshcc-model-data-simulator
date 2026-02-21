@@ -30,15 +30,22 @@ def test_process_demographics_basic(mock_fyc_df, simulator_config):
     assert (result["AGE_LAST"] <= 64).all()
 
 
-def test_process_demographics_age_based_on_benefit_year(mock_fyc_df, simulator_config):
-    """Test that AGE_LAST is calculated relative to benefit year, not MEPS year."""
-    # Benefit year is 2025, MEPS year is 2022
+def test_process_demographics_age_preserves_meps_distribution(mock_fyc_df, simulator_config):
+    """Test that AGE_LAST preserves the person's age from the MEPS data year.
+
+    DOBs are shifted forward by (benefit_year - meps_year) so that the MEPS age
+    distribution is preserved. A person born in 1985 was age 37 in MEPS 2022,
+    and should remain age 37 in the output regardless of the benefit year.
+    """
+    # Benefit year is 2025, MEPS year is 2022, offset = 3
     result = process_demographics(mock_fyc_df, MEPS_YEAR, simulator_config)
 
-    # Person born 1985: age 40 in 2025 (not 37 in 2022)
-    person_1985 = result[result["ENROLID"] == "10001"]
-    if len(person_1985) > 0:
-        assert person_1985.iloc[0]["AGE_LAST"] == 40
+    # Person born 1985 in MEPS 2022: age 37 (= 2022 - 1985), preserved via DOB shift
+    person = result[result["ENROLID"] == "10001"]
+    if len(person) > 0:
+        assert person.iloc[0]["AGE_LAST"] == 37
+        # DOBYY should be shifted: 1985 + 3 = 1988
+        assert person.iloc[0]["DOBYY"] == 1988
 
 
 def test_process_demographics_age_filter(mock_fyc_df, simulator_config):

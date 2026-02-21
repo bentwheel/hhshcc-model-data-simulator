@@ -78,12 +78,18 @@ def process_demographics(
         ),
         axis=1,
     )
+
+    # Shift birth years so the MEPS age distribution is preserved in the benefit year.
+    # Without this, a 0-year-old in MEPS 2022 would be age 3 in benefit year 2025,
+    # leaving the infant age band empty.
+    dob_offset = config.benefit_year - meps_year
+    df["DOBYY"] = df["DOBYY"] + dob_offset
+
     # Vectorized DOB and AGE_LAST (no per-row apply needed)
     df["DOB"] = df["DOBYY"] * 10000 + df["DOBMM"] * 100 + df["DOBDD"]
 
-    # AGE_LAST as of Dec 31 of the benefit year. Since the reference date is always
-    # Dec 31 (month=12, day=31), no birthday-hasn't-happened adjustment is ever needed:
-    # (12, 31) is never less than any valid (month, day).
+    # AGE_LAST = benefit_year - shifted_DOBYY = meps_year - original_DOBYY,
+    # which preserves each person's age from the MEPS data year.
     df["AGE_LAST"] = config.benefit_year - df["DOBYY"]
 
     # Filter by age range (based on benefit year age)
