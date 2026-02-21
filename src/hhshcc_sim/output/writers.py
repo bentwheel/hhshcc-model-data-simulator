@@ -37,6 +37,8 @@ def write_person_file(
     person["ENROLDURATION"] = person["ENROLDURATION"].astype(int)
     person["METAL"] = person["METAL"].str.lower()
 
+    person = person.sort_values("ENROLID").reset_index(drop=True)
+
     path = output_dir / f"{prefix}PERSON.csv"
     person.to_csv(path, index=False)
     logger.info(f"Wrote {prefix}PERSON.csv: {len(person):,} rows -> {path}")
@@ -57,6 +59,8 @@ def write_diag_file(diag_df: pd.DataFrame, output_dir: Path, prefix: str = "") -
     diag["DIAGNOSIS_SERVICE_DATE"] = diag["DIAGNOSIS_SERVICE_DATE"].astype(int)
     diag["AGE_AT_DIAGNOSIS"] = diag["AGE_AT_DIAGNOSIS"].astype(int)
 
+    diag = diag.sort_values("ENROLID").reset_index(drop=True)
+
     path = output_dir / f"{prefix}DIAG.csv"
     diag.to_csv(path, index=False)
     logger.info(f"Wrote {prefix}DIAG.csv: {len(diag):,} rows -> {path}")
@@ -70,6 +74,8 @@ def write_ndc_file(ndc_df: pd.DataFrame, output_dir: Path, prefix: str = "") -> 
     """
     ndc = ndc_df[["ENROLID", "NDC"]].copy()
     ndc["NDC"] = ndc["NDC"].astype(str).str.zfill(11)
+
+    ndc = ndc.sort_values("ENROLID").reset_index(drop=True)
 
     path = output_dir / f"{prefix}NDC.csv"
     ndc.to_csv(path, index=False)
@@ -89,6 +95,8 @@ def write_hcpcs_file(hcpcs_df: pd.DataFrame, output_dir: Path, prefix: str = "")
     else:
         hcpcs = hcpcs_df[["ENROLID", "HCPCS"]].copy()
         hcpcs["HCPCS"] = hcpcs["HCPCS"].astype(str).str.strip()
+
+    hcpcs = hcpcs.sort_values("ENROLID").reset_index(drop=True)
 
     hcpcs.to_csv(path, index=False)
     logger.info(f"Wrote {prefix}HCPCS.csv: {len(hcpcs):,} rows -> {path}")
