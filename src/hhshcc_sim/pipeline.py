@@ -3,9 +3,11 @@
 import logging
 import time
 
+import pandas as pd
+
 from hhshcc_sim.config import SimulatorConfig
 from hhshcc_sim.data.ca_icd10_download import download_ca_icd10_files
-from hhshcc_sim.data.meps_download import download_meps_files
+from hhshcc_sim.data.meps_download import download_all_meps_files
 from hhshcc_sim.output.validators import validate_all_outputs
 from hhshcc_sim.output.writers import write_all_output_files
 from hhshcc_sim.processors.demographics import process_demographics
@@ -21,51 +23,117 @@ from hhshcc_sim.utils.io import read_stata
 logger = logging.getLogger(__name__)
 
 
+def _prefix_enrolids(df: pd.DataFrame, meps_year: int, col: str = "ENROLID") -> pd.DataFrame:
+    """Prefix ENROLID values with the MEPS year to ensure uniqueness across years."""
+    df = df.copy()
+    df[col] = f"{meps_year}_" + df[col].astype(str)
+    return df
+
+
 def run_pipeline(config: SimulatorConfig) -> None:
-    """Execute the full simulation pipeline."""
+    """Execute the full simulation pipeline.
+
+    When multiple MEPS years are specified, data from each year is processed
+    independently and then concatenated. ENROLIDs are prefixed with the MEPS
+    year (e.g., '2022_10001') to prevent collisions across years.
+
+    Diagnosis service dates and AGE_LAST are calculated relative to the
+    benefit year, not the MEPS data year.
+    """
     start = time.time()
-    logger.info(f"Starting HHS-HCC simulation for MEPS year {config.meps_year}")
+    years_str = ", ".join(str(y) for y in config.meps_years)
+    logger.info(f"Starting HHS-HCC simulation")
+    logger.info(f"  MEPS year(s): {years_str}")
+    logger.info(f"  Benefit year: {config.benefit_year}")
     logger.info(f"  Output dir: {config.output_dir}")
     logger.info(f"  Random seed: {config.random_seed}")
     logger.info(f"  DX mode: {config.dx_mode}")
-    logger.info(f"  Age range: {config.age_min}-{config.age_max}")
+    logger.info(f"  Age range: {config.age_min}-{config.age_max} (as of {config.benefit_year})")
 
-    # Stage 1: Download data
+    # Stage 1: Download all data
     logger.info("=" * 60)
     logger.info("Stage 1: Downloading data")
-    meps_paths = download_meps_files(config)
+    all_meps_paths = download_all_meps_files(config)
     ca_paths = download_ca_icd10_files(config)
 
-    # Stage 2: Read raw files
+    # Stage 2: Build ICD-10 expansion tables (shared across all MEPS years)
     logger.info("=" * 60)
-    logger.info("Stage 2: Reading raw data files")
-    fyc_df = read_stata(meps_paths["fyc"])
-    cond_df = read_stata(meps_paths["cond"])
-    pmed_df = read_stata(meps_paths["pmed"])
-
-    # Stage 3: Process demographics
-    logger.info("=" * 60)
-    logger.info("Stage 3: Processing demographics")
-    demographics_df = process_demographics(fyc_df, config)
-
-    # Stage 4: Process enrollment
-    logger.info("=" * 60)
-    logger.info("Stage 4: Processing enrollment")
-    enrollment_df = process_enrollment(demographics_df, config)
-
-    # Stage 5: Build ICD-10 expansion tables and process diagnoses
-    logger.info("=" * 60)
-    logger.info("Stage 5: Processing diagnoses (ICD-10 expansion)")
+    logger.info("Stage 2: Building ICD-10 expansion tables")
     ca_freq_df = load_ca_icd10_frequencies(
         ca_paths["ed"], ca_paths["ip"], ca_paths["op"]
     )
     prob_tables = build_expansion_probabilities(ca_freq_df)
-    diag_df = process_diagnoses(cond_df, prob_tables, demographics_df, config)
 
-    # Stage 6: Process prescriptions
+    # Stage 3-6: Process each MEPS year independently, then concatenate
+    all_demographics = []
+    all_enrollment = []
+    all_diag = []
+    all_ndc = []
+
+    for meps_year in config.meps_years:
+        logger.info("=" * 60)
+        logger.info(f"Processing MEPS year {meps_year}")
+        year_paths = all_meps_paths[meps_year]
+
+        # Read raw files for this year
+        logger.info(f"  Reading raw data files for {meps_year}")
+        fyc_df = read_stata(year_paths["fyc"])
+        cond_df = read_stata(year_paths["cond"])
+        pmed_df = read_stata(year_paths["pmed"])
+
+        # Process demographics (AGE_LAST is based on benefit_year)
+        logger.info(f"  Processing demographics for {meps_year}")
+        demo_df = process_demographics(fyc_df, meps_year, config)
+
+        if len(demo_df) == 0:
+            logger.warning(f"  No eligible persons found in MEPS {meps_year}, skipping")
+            continue
+
+        # Process enrollment
+        logger.info(f"  Processing enrollment for {meps_year}")
+        enroll_df = process_enrollment(demo_df, config)
+
+        # Process diagnoses (service dates placed in benefit_year)
+        logger.info(f"  Processing diagnoses for {meps_year}")
+        diag_df = process_diagnoses(cond_df, prob_tables, demo_df, config)
+
+        # Process prescriptions
+        logger.info(f"  Processing prescriptions for {meps_year}")
+        ndc_df = process_prescriptions(pmed_df, demo_df, config)
+
+        # Prefix ENROLIDs with MEPS year for cross-year uniqueness
+        # (only needed when combining multiple years, but always applied for consistency)
+        demo_df = _prefix_enrolids(demo_df, meps_year)
+        enroll_df = _prefix_enrolids(enroll_df, meps_year)
+        if len(diag_df) > 0:
+            diag_df = _prefix_enrolids(diag_df, meps_year)
+        if len(ndc_df) > 0:
+            ndc_df = _prefix_enrolids(ndc_df, meps_year)
+
+        all_demographics.append(demo_df)
+        all_enrollment.append(enroll_df)
+        all_diag.append(diag_df)
+        all_ndc.append(ndc_df)
+
+    if not all_demographics:
+        logger.error("No eligible persons found across any MEPS year. Aborting.")
+        return
+
+    # Concatenate across years
+    demographics_df = pd.concat(all_demographics, ignore_index=True)
+    enrollment_df = pd.concat(all_enrollment, ignore_index=True)
+    diag_df = pd.concat(all_diag, ignore_index=True) if all_diag else pd.DataFrame(
+        columns=["ENROLID", "DIAG", "DIAGNOSIS_SERVICE_DATE", "AGE_AT_DIAGNOSIS"]
+    )
+    ndc_df = pd.concat(all_ndc, ignore_index=True) if all_ndc else pd.DataFrame(
+        columns=["ENROLID", "NDC"]
+    )
+
     logger.info("=" * 60)
-    logger.info("Stage 6: Processing prescriptions")
-    ndc_df = process_prescriptions(pmed_df, demographics_df, config)
+    logger.info(
+        f"Combined totals: {len(demographics_df):,} persons, "
+        f"{len(diag_df):,} diagnoses, {len(ndc_df):,} NDCs"
+    )
 
     # Stage 7: Write output files
     logger.info("=" * 60)

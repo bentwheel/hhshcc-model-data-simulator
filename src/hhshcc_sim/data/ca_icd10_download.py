@@ -15,13 +15,14 @@ def download_ca_icd10_files(config: SimulatorConfig) -> dict[str, Path]:
 
     Returns dict mapping setting ('ed', 'ip', 'op') -> local file path.
     """
-    urls = get_ca_urls(config.meps_year)
+    ca_year = config.most_recent_meps_year
+    urls = get_ca_urls(ca_year)
     raw_dir = config.raw_dir
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     paths = {}
     for setting, url in urls.items():
-        filename = f"ca_icd10_{config.meps_year}_{setting}.xlsx"
+        filename = f"ca_icd10_{ca_year}_{setting}.xlsx"
         dest = raw_dir / filename
 
         if config.skip_download and dest.exists():
@@ -29,8 +30,8 @@ def download_ca_icd10_files(config: SimulatorConfig) -> dict[str, Path]:
             paths[setting] = dest
             continue
 
-        logger.info(f"Downloading CA {setting.upper()} ICD-10 data for {config.meps_year}")
-        download_file(url, dest, description=f"CA {setting.upper()} {config.meps_year}")
+        logger.info(f"Downloading CA {setting.upper()} ICD-10 data for {ca_year}")
+        download_file(url, dest, description=f"CA {setting.upper()} {ca_year}")
         paths[setting] = dest
 
     return paths

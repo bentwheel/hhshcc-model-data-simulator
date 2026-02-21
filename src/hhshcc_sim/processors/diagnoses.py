@@ -50,7 +50,6 @@ def process_diagnoses(
         ENROLID, DIAG, DIAGNOSIS_SERVICE_DATE, AGE_AT_DIAGNOSIS
     """
     rng = np.random.default_rng(config.random_seed + 1)  # Offset seed from enrollment
-    year = config.meps_year
 
     # Normalize column names
     df = cond_df.copy()
@@ -102,7 +101,7 @@ def _process_single(
     config: SimulatorConfig,
 ) -> pd.DataFrame:
     """Single-draw expansion: one full code per condition record."""
-    year = config.meps_year
+    benefit_year = config.benefit_year
     records = []
 
     for i, (_, row) in enumerate(df.iterrows()):
@@ -113,13 +112,15 @@ def _process_single(
         # Expand 3-char code to full code
         full_code = expand_icd10_code(icd10cdx, setting, prob_tables, rng)
 
-        # Simulate service date
+        # Simulate service date in the benefit year
         info = person_info.get(person_id, {})
         enrolled_months = info.get("ENROLLED_MONTHS", [6])
-        svc_date = simulate_service_date(year, enrolled_months, person_id, i, config.random_seed)
+        svc_date = simulate_service_date(
+            benefit_year, enrolled_months, person_id, i, config.random_seed
+        )
 
-        # Calculate age at diagnosis
-        dob_int = info.get("DOB", year * 10000 + 101)
+        # Calculate age at diagnosis (using real DOB, benefit-year service date)
+        dob_int = info.get("DOB", benefit_year * 10000 + 101)
         dob = dob_int_to_date(dob_int)
         age_at_dx = calculate_age(dob, svc_date)
 
@@ -144,7 +145,7 @@ def _process_mode(
     config: SimulatorConfig,
 ) -> pd.DataFrame:
     """Mode-based expansion: generate N profiles per person, pick the most common."""
-    year = config.meps_year
+    benefit_year = config.benefit_year
     records = []
 
     for person_id, person_conds in df.groupby("DUPERSID"):
@@ -159,12 +160,12 @@ def _process_mode(
         # Build records for this person
         info = person_info.get(person_id, {})
         enrolled_months = info.get("ENROLLED_MONTHS", [6])
-        dob_int = info.get("DOB", year * 10000 + 101)
+        dob_int = info.get("DOB", benefit_year * 10000 + 101)
         dob = dob_int_to_date(dob_int)
 
         for i, full_code in enumerate(expanded):
             svc_date = simulate_service_date(
-                year, enrolled_months, person_id, i, config.random_seed
+                benefit_year, enrolled_months, person_id, i, config.random_seed
             )
             age_at_dx = calculate_age(dob, svc_date)
 

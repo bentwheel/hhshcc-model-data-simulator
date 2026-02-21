@@ -88,7 +88,8 @@ def simulator_config(tmp_path):
     from hhshcc_sim.config import SimulatorConfig
 
     return SimulatorConfig(
-        meps_year=2022,
+        meps_years=[2022],
+        benefit_year=2025,
         data_dir=tmp_path / "data",
         output_dir=tmp_path / "output",
         random_seed=42,

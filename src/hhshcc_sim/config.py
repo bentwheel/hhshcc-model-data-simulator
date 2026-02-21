@@ -8,7 +8,8 @@ from pathlib import Path
 class SimulatorConfig:
     """Configuration for an HHS-HCC simulation run."""
 
-    meps_year: int
+    meps_years: list[int]
+    benefit_year: int
     data_dir: Path = field(default_factory=lambda: Path("./data"))
     output_dir: Path = field(default_factory=lambda: Path("./data/output"))
     random_seed: int = 42
@@ -21,6 +22,9 @@ class SimulatorConfig:
     def __post_init__(self) -> None:
         self.data_dir = Path(self.data_dir)
         self.output_dir = Path(self.output_dir)
+        if isinstance(self.meps_years, int):
+            self.meps_years = [self.meps_years]
+        self.meps_years = sorted(self.meps_years)
         self.raw_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -29,6 +33,6 @@ class SimulatorConfig:
         return self.data_dir / "raw"
 
     @property
-    def meps_year_suffix(self) -> str:
-        """Two-digit year suffix used in MEPS FYC variable names."""
-        return str(self.meps_year)[-2:]
+    def most_recent_meps_year(self) -> int:
+        """Most recent MEPS year, used for CA ICD-10 frequency data."""
+        return max(self.meps_years)

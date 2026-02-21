@@ -80,19 +80,23 @@ def download_meps_file(hc_id: str, raw_dir: Path, skip_if_exists: bool = True) -
     return extracted
 
 
-def download_meps_files(config: SimulatorConfig) -> dict[str, Path]:
-    """Download all three MEPS PUFs (FYC, COND, PMED) for the configured year.
+def download_all_meps_files(config: SimulatorConfig) -> dict[int, dict[str, Path]]:
+    """Download MEPS PUFs (FYC, COND, PMED) for all configured years.
 
-    Returns dict mapping file_type ('fyc', 'cond', 'pmed') -> local .dta path.
+    Returns nested dict: {year: {'fyc': Path, 'cond': Path, 'pmed': Path}}
     """
-    hc_ids = get_hc_ids(config.meps_year)
     raw_dir = config.raw_dir
     raw_dir.mkdir(parents=True, exist_ok=True)
 
-    paths = {}
-    for file_type, hc_id in hc_ids.items():
-        paths[file_type] = download_meps_file(
-            hc_id, raw_dir, skip_if_exists=config.skip_download
-        )
+    all_paths: dict[int, dict[str, Path]] = {}
+    for year in config.meps_years:
+        hc_ids = get_hc_ids(year)
+        year_paths = {}
+        for file_type, hc_id in hc_ids.items():
+            year_paths[file_type] = download_meps_file(
+                hc_id, raw_dir, skip_if_exists=config.skip_download
+            )
+        all_paths[year] = year_paths
+        logger.info(f"MEPS {year} files ready")
 
-    return paths
+    return all_paths

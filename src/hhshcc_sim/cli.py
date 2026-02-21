@@ -9,13 +9,28 @@ from hhshcc_sim.config import SimulatorConfig
 from hhshcc_sim.data.meps_registry import SUPPORTED_YEARS
 from hhshcc_sim.pipeline import run_pipeline
 
+SUPPORTED_BENEFIT_YEARS = list(range(2023, 2027))
+
 
 @click.command()
 @click.option(
-    "--year",
+    "--meps-years",
     type=int,
     required=True,
-    help=f"MEPS data year ({SUPPORTED_YEARS[0]}-{SUPPORTED_YEARS[-1]})",
+    multiple=True,
+    help=(
+        f"MEPS data year(s) to derive simulated data from ({SUPPORTED_YEARS[0]}-{SUPPORTED_YEARS[-1]}). "
+        "Can be specified multiple times to combine years, e.g. --meps-years 2021 --meps-years 2022"
+    ),
+)
+@click.option(
+    "--benefit-year",
+    type=int,
+    required=True,
+    help=(
+        f"HHS-HCC model benefit year ({SUPPORTED_BENEFIT_YEARS[0]}-{SUPPORTED_BENEFIT_YEARS[-1]}). "
+        "Diagnosis service dates will be placed in this year."
+    ),
 )
 @click.option(
     "--output-dir",
@@ -57,14 +72,14 @@ from hhshcc_sim.pipeline import run_pipeline
     type=int,
     default=0,
     show_default=True,
-    help="Minimum age filter",
+    help="Minimum age filter (based on benefit year)",
 )
 @click.option(
     "--age-max",
     type=int,
     default=64,
     show_default=True,
-    help="Maximum age filter",
+    help="Maximum age filter (based on benefit year)",
 )
 @click.option(
     "--no-download",
@@ -78,7 +93,8 @@ from hhshcc_sim.pipeline import run_pipeline
     help="Increase verbosity (-v for INFO, -vv for DEBUG)",
 )
 def main(
-    year: int,
+    meps_years: tuple[int, ...],
+    benefit_year: int,
     output_dir: str,
     data_dir: str,
     seed: int,
@@ -105,17 +121,28 @@ def main(
         stream=sys.stderr,
     )
 
-    # Validate year
-    if year not in SUPPORTED_YEARS:
+    # Validate MEPS years
+    for y in meps_years:
+        if y not in SUPPORTED_YEARS:
+            click.echo(
+                f"Error: MEPS year {y} is not supported. "
+                f"Supported years: {SUPPORTED_YEARS}",
+                err=True,
+            )
+            sys.exit(1)
+
+    # Validate benefit year
+    if benefit_year not in SUPPORTED_BENEFIT_YEARS:
         click.echo(
-            f"Error: Year {year} is not supported. "
-            f"Supported years: {SUPPORTED_YEARS}",
+            f"Error: Benefit year {benefit_year} is not supported. "
+            f"Supported years: {SUPPORTED_BENEFIT_YEARS}",
             err=True,
         )
         sys.exit(1)
 
     config = SimulatorConfig(
-        meps_year=year,
+        meps_years=list(meps_years),
+        benefit_year=benefit_year,
         data_dir=data_dir,
         output_dir=output_dir,
         random_seed=seed,
