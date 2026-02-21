@@ -7,12 +7,18 @@ import pandas as pd
 
 from hhshcc_sim.config import SimulatorConfig
 from hhshcc_sim.data.ca_icd10_download import download_ca_icd10_files
+from hhshcc_sim.data.cms_diy_download import (
+    download_cms_diy_tables,
+    parse_hcpcs_to_rxc,
+    parse_ndc_to_rxc,
+)
 from hhshcc_sim.data.meps_download import download_all_meps_files
 from hhshcc_sim.output.validators import validate_all_outputs
 from hhshcc_sim.output.writers import write_all_output_files
 from hhshcc_sim.processors.demographics import process_demographics
 from hhshcc_sim.processors.diagnoses import process_diagnoses
 from hhshcc_sim.processors.enrollment import process_enrollment
+from hhshcc_sim.processors.hcpcs import build_rxc_crosswalk, process_hcpcs
 from hhshcc_sim.processors.icd10_expansion import (
     build_expansion_probabilities,
     load_ca_icd10_frequencies,
@@ -55,6 +61,7 @@ def run_pipeline(config: SimulatorConfig) -> None:
     logger.info("Stage 1: Downloading data")
     all_meps_paths = download_all_meps_files(config)
     ca_paths = download_ca_icd10_files(config)
+    cms_tables_path = download_cms_diy_tables(config)
 
     # Stage 2: Build ICD-10 expansion tables (shared across all MEPS years)
     logger.info("=" * 60)
@@ -63,6 +70,12 @@ def run_pipeline(config: SimulatorConfig) -> None:
         ca_paths["ed"], ca_paths["ip"], ca_paths["op"]
     )
     prob_tables = build_expansion_probabilities(ca_freq_df)
+
+    # Build RXC crosswalk tables for HCPCS generation
+    logger.info("Building RXC crosswalk tables (Table 10a/10b)")
+    ndc_to_rxc_df = parse_ndc_to_rxc(cms_tables_path)
+    hcpcs_to_rxc_df = parse_hcpcs_to_rxc(cms_tables_path)
+    ndc_rxc_map, rxc_hcpcs_map = build_rxc_crosswalk(ndc_to_rxc_df, hcpcs_to_rxc_df)
 
     # Stage 3-6: Process each MEPS year independently, then concatenate
     all_demographics = []
@@ -129,17 +142,23 @@ def run_pipeline(config: SimulatorConfig) -> None:
         columns=["ENROLID", "NDC"]
     )
 
+    # Generate HCPCS records from NDC->RXC->HCPCS crosswalk
+    logger.info("=" * 60)
+    logger.info("Processing HCPCS via RXC crosswalk")
+    hcpcs_df = process_hcpcs(ndc_df, ndc_rxc_map, rxc_hcpcs_map, config)
+
     logger.info("=" * 60)
     logger.info(
         f"Combined totals: {len(demographics_df):,} persons, "
-        f"{len(diag_df):,} diagnoses, {len(ndc_df):,} NDCs"
+        f"{len(diag_df):,} diagnoses, {len(ndc_df):,} NDCs, "
+        f"{len(hcpcs_df):,} HCPCS"
     )
 
     # Stage 7: Write output files
     logger.info("=" * 60)
     logger.info("Stage 7: Writing output files")
     output_paths = write_all_output_files(
-        demographics_df, enrollment_df, diag_df, ndc_df, config.output_dir
+        demographics_df, enrollment_df, diag_df, ndc_df, hcpcs_df, config.output_dir
     )
 
     # Stage 8: Validate

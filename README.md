@@ -26,16 +26,17 @@ This tool fills that gap by constructing plausible, HIPAA-safe input files deriv
 
 ## How It Works
 
-The simulator runs an eight-stage pipeline:
+The simulator runs a nine-stage pipeline:
 
-1. **Download MEPS data** &mdash; Three Public Use Files (Full-Year Consolidated, Medical Conditions, Prescribed Medicines) are downloaded as Stata files from AHRQ for each specified MEPS year. Multiple years can be combined for a larger sample.
-2. **Download CA ICD-10 frequency data** &mdash; Diagnosis code frequency tables from the California Department of Health Care Access and Information are downloaded for probabilistic ICD-10 code expansion.
+1. **Download data** &mdash; Three MEPS Public Use Files (Full-Year Consolidated, Medical Conditions, Prescribed Medicines) are downloaded as Stata files from AHRQ for each specified MEPS year. California ICD-10 frequency tables and the CMS DIY Tables Excel file (containing RXC crosswalks) are also downloaded. Multiple MEPS years can be combined for a larger sample.
+2. **Build expansion and crosswalk tables** &mdash; California ICD-10 frequency data is parsed into probability tables for code expansion. CMS DIY Tables 10a (NDC&rarr;RXC) and 10b (HCPCS&rarr;RXC) are parsed into crosswalk lookups for HCPCS generation.
 3. **Process demographics** &mdash; For each MEPS year: extracts person-level fields from the FYC file, filters to ages 0&ndash;64 (as of the benefit year) with private insurance coverage, and simulates a birth day using deterministic hashing. ENROLIDs are prefixed with the MEPS year to ensure uniqueness when combining years.
 4. **Process enrollment** &mdash; Counts months of private coverage. Simulates metal level and CSR indicator informed by the person's income (poverty level relative to FPL) and age.
 5. **Expand ICD-10 codes** &mdash; MEPS truncates all diagnosis codes to 3 characters for confidentiality. This stage uses California claims frequency data to probabilistically expand each truncated code to a plausible full ICD-10-CM code, weighted by the care setting (ED, inpatient, outpatient) in which the condition was observed.
 6. **Process prescriptions** &mdash; Extracts 11-digit NDC codes from the MEPS Prescribed Medicines file.
-7. **Write output files** &mdash; Produces the four CSV files matching the CY2025 HHS-HCC DIY input specification. Diagnosis service dates are placed in the benefit year (not the MEPS data year) so they fall within the model's expected date range.
-8. **Validate** &mdash; Checks output format, value ranges, and referential integrity across files.
+7. **Generate HCPCS codes** &mdash; For each person with NDC codes that map to an RXC (Prescription Drug Category) via CMS Table 10a, a corresponding HCPCS procedure code is assigned from the same RXC via Table 10b. This simulates the scenario where a drug identified by NDC could also be identified via a HCPCS code (e.g., J-codes for drugs administered in clinical settings).
+8. **Write output files** &mdash; Produces the four CSV files matching the CY2025 HHS-HCC DIY input specification. Diagnosis service dates are placed in the benefit year (not the MEPS data year) so they fall within the model's expected date range.
+9. **Validate** &mdash; Checks output format, value ranges, and referential integrity across files.
 
 ### Output Files
 
@@ -44,7 +45,7 @@ The simulator runs an eight-stage pipeline:
 | `PERSON.csv` | One row per enrollee: ID, sex, date of birth, age, metal level, CSR indicator, enrollment duration |
 | `DIAG.csv` | One row per diagnosis: enrollee ID, ICD-10-CM code (expanded), service date, age at diagnosis |
 | `NDC.csv` | One row per drug: enrollee ID, 11-digit NDC code |
-| `HCPCS.csv` | Header only (placeholder &mdash; MEPS does not contain HCPCS procedure codes) |
+| `HCPCS.csv` | One row per procedure: enrollee ID, HCPCS code (derived from NDC&rarr;RXC&rarr;HCPCS crosswalk) |
 
 ### ICD-10 Code Expansion
 
@@ -134,10 +135,13 @@ Output files are written to `./data/output/` by default.
 pytest
 ```
 
+The test suite (38 tests) runs entirely against mock data fixtures &mdash; no network access or real MEPS data is required. See [`tests/README.md`](tests/README.md) for a detailed description of every test case.
+
 ## Data Sources
 
 - **MEPS Public Use Files** &mdash; Annual survey microdata from the Agency for Healthcare Research and Quality (AHRQ). Includes demographics, insurance coverage, medical conditions (truncated ICD-10-CM codes), and prescribed medicines (NDC codes). Available at [meps.ahrq.gov](https://meps.ahrq.gov/mepsweb/).
 - **California HCAI Diagnosis Code Frequencies** &mdash; Aggregate diagnosis code frequency counts from California hospital emergency department, inpatient, and ambulatory surgery settings. Used to build probability distributions for expanding 3-character truncated ICD-10 codes to their full specificity. Available at [data.chhs.ca.gov](https://data.chhs.ca.gov/).
+- **CMS HHS-HCC DIY Tables** &mdash; The official CMS DIY software distribution includes Excel tables mapping NDC codes to RXC (Prescription Drug Category) values (Table 10a) and HCPCS codes to RXC values (Table 10b). These crosswalks are used to generate HCPCS records from MEPS NDC data. Available at [cms.gov](https://www.cms.gov/medicare/payment/medicare-advantage-rates-statistics/risk-adjustment).
 
 ## Related Projects
 
@@ -145,7 +149,7 @@ pytest
 
 ## Known Limitations
 
-- **HCPCS codes are not available in MEPS.** The `HCPCS.csv` output is a header-only placeholder. The HHS-HCC model uses HCPCS codes for certain RXC (prescription drug category) assignments; these will be missed in the simulated output.
+- **HCPCS codes are derived, not observed.** MEPS does not contain HCPCS procedure codes. The `HCPCS.csv` output is generated by crossing NDC codes through the CMS RXC crosswalk (Table 10a &rarr; Table 10b), which identifies plausible HCPCS codes for drugs in the same prescription drug category. Not all RXC-eligible drugs will have corresponding HCPCS codes in the crosswalk, and the simulated codes represent drug-administration procedures (e.g., J-codes) rather than observed claims.
 - **ICD-10 codes are probabilistically expanded, not observed.** The expanded codes are plausible given the truncated code and care setting, but they are not the actual codes from the underlying medical encounters.
 - **Metal level and CSR indicator are simulated.** MEPS does not include plan metal level or cost-sharing reduction information. These are assigned using income-informed probability distributions based on published ACA marketplace enrollment patterns.
 - **Diagnosis service dates are simulated.** MEPS conditions do not include exact service dates; these are generated as random dates within enrolled months.

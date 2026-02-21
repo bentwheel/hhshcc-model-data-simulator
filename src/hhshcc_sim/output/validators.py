@@ -110,8 +110,8 @@ def validate_ndc_file(path: Path, person_path: Path) -> list[str]:
     return errors
 
 
-def validate_hcpcs_file(path: Path) -> list[str]:
-    """Validate HCPCS.csv has correct headers."""
+def validate_hcpcs_file(path: Path, person_path: Path) -> list[str]:
+    """Validate HCPCS.csv format and referential integrity."""
     errors = []
     df = pd.read_csv(path, dtype=str)
 
@@ -119,8 +119,22 @@ def validate_hcpcs_file(path: Path) -> list[str]:
     missing = required_cols - set(df.columns)
     if missing:
         errors.append(f"HCPCS.csv missing columns: {missing}")
+        return errors
 
-    return errors
+    if len(df) == 0:
+        return errors
+
+    # HCPCS must be 5 characters, alphanumeric
+    invalid_hcpcs = df[~df["HCPCS"].str.match(r"^[A-Z0-9]{5}$", na=False)]
+    if len(invalid_hcpcs) > 0:
+        errors.append(f"HCPCS.csv has {len(invalid_hcpcs)} rows with invalid HCPCS format")
+
+    # Referential integrity
+    person_df = pd.read_csv(person_path, dtype=str)
+    valid_ids = set(person_df["ENROLID"])
+    orphan_ids = set(df["ENROLID"]) - valid_ids
+    if orphan_ids:
+        errors.append(f"HCPCS.csv has {len(orphan_ids)} ENROLIDs not in PERSON.csv")
 
 
 def validate_all_outputs(output_dir: Path) -> list[str]:
@@ -147,7 +161,7 @@ def validate_all_outputs(output_dir: Path) -> list[str]:
     errors.extend(validate_person_file(person_path))
     errors.extend(validate_diag_file(diag_path, person_path))
     errors.extend(validate_ndc_file(ndc_path, person_path))
-    errors.extend(validate_hcpcs_file(hcpcs_path))
+    errors.extend(validate_hcpcs_file(hcpcs_path, person_path))
 
     if not errors:
         logger.info("All output files passed validation.")

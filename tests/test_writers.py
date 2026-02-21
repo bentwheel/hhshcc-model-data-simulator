@@ -34,13 +34,28 @@ def test_write_person_file(tmp_path):
     assert result.iloc[0]["METAL"] == "silver"
 
 
-def test_write_hcpcs_file(tmp_path):
-    """Test HCPCS.csv is header-only."""
-    path = write_hcpcs_file(tmp_path)
+def test_write_hcpcs_file_empty(tmp_path):
+    """Test HCPCS.csv with empty DataFrame."""
+    hcpcs = pd.DataFrame(columns=["ENROLID", "HCPCS"])
+    path = write_hcpcs_file(hcpcs, tmp_path)
     result = pd.read_csv(path, dtype=str)
 
     assert list(result.columns) == ["ENROLID", "HCPCS"]
     assert len(result) == 0
+
+
+def test_write_hcpcs_file_with_data(tmp_path):
+    """Test HCPCS.csv with actual records."""
+    hcpcs = pd.DataFrame({
+        "ENROLID": ["10001", "10002"],
+        "HCPCS": ["J1745", "J0135"],
+    })
+    path = write_hcpcs_file(hcpcs, tmp_path)
+    result = pd.read_csv(path, dtype=str)
+
+    assert list(result.columns) == ["ENROLID", "HCPCS"]
+    assert len(result) == 2
+    assert result.iloc[0]["HCPCS"] == "J1745"
 
 
 def test_write_all_output_files(tmp_path):
@@ -67,9 +82,13 @@ def test_write_all_output_files(tmp_path):
         "ENROLID": ["10001"],
         "NDC": ["00093310905"],
     })
+    hcpcs = pd.DataFrame({
+        "ENROLID": ["10001"],
+        "HCPCS": ["J1745"],
+    })
 
     output_dir = tmp_path / "output"
-    paths = write_all_output_files(demographics, enrollment, diag, ndc, output_dir)
+    paths = write_all_output_files(demographics, enrollment, diag, ndc, hcpcs, output_dir)
 
     assert "person" in paths
     assert "diag" in paths

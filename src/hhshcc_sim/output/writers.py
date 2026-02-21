@@ -76,15 +76,21 @@ def write_ndc_file(ndc_df: pd.DataFrame, output_dir: Path) -> Path:
     return path
 
 
-def write_hcpcs_file(output_dir: Path) -> Path:
-    """Write HCPCS.csv (header only, no data rows).
+def write_hcpcs_file(hcpcs_df: pd.DataFrame, output_dir: Path) -> Path:
+    """Write HCPCS.csv.
 
     Columns: ENROLID, HCPCS
     """
     path = output_dir / "HCPCS.csv"
-    hcpcs = pd.DataFrame(columns=["ENROLID", "HCPCS"])
+
+    if len(hcpcs_df) == 0:
+        hcpcs = pd.DataFrame(columns=["ENROLID", "HCPCS"])
+    else:
+        hcpcs = hcpcs_df[["ENROLID", "HCPCS"]].copy()
+        hcpcs["HCPCS"] = hcpcs["HCPCS"].astype(str).str.strip()
+
     hcpcs.to_csv(path, index=False)
-    logger.info(f"Wrote HCPCS.csv: header only (placeholder) -> {path}")
+    logger.info(f"Wrote HCPCS.csv: {len(hcpcs):,} rows -> {path}")
     return path
 
 
@@ -93,6 +99,7 @@ def write_all_output_files(
     enrollment_df: pd.DataFrame,
     diag_df: pd.DataFrame,
     ndc_df: pd.DataFrame,
+    hcpcs_df: pd.DataFrame,
     output_dir: Path,
 ) -> dict[str, Path]:
     """Write all four HHS-HCC DIY input files.
@@ -105,5 +112,5 @@ def write_all_output_files(
         "person": write_person_file(demographics_df, enrollment_df, output_dir),
         "diag": write_diag_file(diag_df, output_dir),
         "ndc": write_ndc_file(ndc_df, output_dir),
-        "hcpcs": write_hcpcs_file(output_dir),
+        "hcpcs": write_hcpcs_file(hcpcs_df, output_dir),
     }
